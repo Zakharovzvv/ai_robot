@@ -1,0 +1,19 @@
+# ── ядро ─────────────────────────────────────────────
+numpy==1.26.4
+torch==2.7.0            # GPU + MPS поддержка
+torchvision==0.22.0
+opencv-python==4.11.0.86      # или opencv-python-headless==4.11.0.86 на серверах
+tqdm==4.67.1
+
+# ── ONNX / ORT для SBC (RPi, Jetson) ────────────────
+#onnx==1.21.0        # нужен только для экспорта
+onnxruntime==1.21.1     # запуск на SBC & desktop
+
+# ── Конвертация в TensorFlow / TFLite ───────────────
+onnx-tf==1.10.0         # onnx → TF SavedModel
+
+# ── TensorFlow для конвертации в TFLite ─────────
+tensorflow-macos==2.16.2
+
+# ── (на Linux SBC отдельно) ────────────────────
+# tflite-runtime==2.14.0
