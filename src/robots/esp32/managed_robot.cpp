@@ -2,7 +2,7 @@
 #include <WebSocketsServer.h>
 #include <HNR-252_DCv0_1.h>
 
-#define TRAINING_MODE false            // ← переключайте здесь
+#define TRAINING_MODE true
 
 const char* WIFI_SSID = "KVANT_1511";
 const char* WIFI_PASS = "7771111777";
@@ -102,7 +102,7 @@ void setup() {
   webSocket.onEvent(onWebSocketEvent);
 
   motors.setup();
-  Serial.println(TRAINING_MODE? "[MODE] TRAINING" : "[MODE] INFERENCE");
+  Serial.println("[MODE] DATA COLLECTION");
 }
 
 /* ───────────────── loop ──────────────────────────────*/
