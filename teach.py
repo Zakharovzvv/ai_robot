@@ -171,6 +171,7 @@ def main():
     final_mae = 0.0  # Финальная ошибка
     best_mae = float('inf')
     patience_counter = 0
+    mae_history = []  # Для хранения MAE по эпохам
     
     print("\n[ОБУЧЕНИЕ] Начало процесса обучения...")
     for epoch in range(1, max_epochs+1):
@@ -203,6 +204,7 @@ def main():
                 print(f"Эпоха {epoch}/{max_epochs} - {progress:.1f}% [батч {i+1}/{total_batches}]")
         elapsed = time.time() - start  # конец эпохи
         final_mae = total/len(ds)  # Сохраняем финальную ошибку
+        mae_history.append(final_mae)  # Добавляем MAE в историю
         print(f"Эпоха {epoch}/{max_epochs} — MAE: {final_mae:.4f} — время: {elapsed:.1f} сек")
         # Early stopping по целевой ошибке
         if final_mae < target_mae:
@@ -224,7 +226,21 @@ def main():
     print(f"\n[РЕЗУЛЬТАТЫ] Обучение завершено!")
     print(f"[РЕЗУЛЬТАТЫ] Общее время обучения: {total_time:.1f} сек ({total_time/60:.1f} мин)")
     print(f"[РЕЗУЛЬТАТЫ] Итоговая ошибка MAE: {final_mae:.4f}")
-    print(f"[РЕЗУЛЬТАТЫ] Среднее время на эпоху: {total_time/max_epochs:.1f} сек")
+    print(f"[РЕЗУЛЬТАТЫ] Среднее время на эпоху: {total_time/epoch:.1f} сек")
+
+    # Построение графика MAE по эпохам
+    try:
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(8,4))
+        plt.plot(range(1, len(mae_history)+1), mae_history, marker='o')
+        plt.xlabel('Эпоха')
+        plt.ylabel('MAE')
+        plt.title('MAE по эпохам обучения')
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+    except ImportError:
+        print("[ВНИМАНИЕ] Для построения графика установите matplotlib: pip install matplotlib")
 
     # 4. save weights
     pth = 'weights/mnv2_035.pth'

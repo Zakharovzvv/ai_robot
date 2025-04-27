@@ -1,5 +1,5 @@
 #include <WiFi.h>
-#include <AsyncUDP.h>
+#include <WebSocketsServer.h>
 #include <HNR-252_DCv0_1.h>
 
 #define TRAINING_MODE false            // ← переключайте здесь
@@ -8,9 +8,7 @@ const char* WIFI_SSID = "KVANT_1511";
 const char* WIFI_PASS = "7771111777";
 
 #define USE_STA
-IPAddress LAPTOP_IP(192,168,31,92);    // IP ноутбука
-const uint16_t TX_PORT = 3333;         // ESP32 → ноут
-const uint16_t RX_PORT = 2222;         // ноут  → ESP32
+const uint16_t WS_PORT = 2222;         // WebSocket порт
 
 // ── ваши пины ──────────────────────────────
 const int DIR_L = 4;
@@ -30,8 +28,9 @@ const float KP         = 3.0f;     // при TRAINING_MODE
 const uint32_t CMD_TIMEOUT = 250;  // мс
 
 MotorShield motors;
-AsyncUDP udp;
+WebSocketsServer webSocket = WebSocketsServer(WS_PORT);
 volatile uint32_t lastCmdMs = 0;
+uint8_t wsClientNum = 0xFF; // номер подключенного клиента
 
 /* ───────────────── helpers ───────────────────────────*/
 // Вариант с 2-датчиками: −1…+1
@@ -58,9 +57,33 @@ float readLineError5() {
 }
 
 void transmitError(float err){
-  int8_t q = round(err * 127.0f);            // −127…+127
-  udp.writeTo(&q,1,LAPTOP_IP,TX_PORT);
-  Serial.printf("[TX] err=%+.2f  byte=%d\n", err, q);
+  if(wsClientNum != 0xFF) {
+    int8_t q = round(err * 127.0f);            // −127…+127
+    uint8_t buf[1] = { (uint8_t)q };
+    webSocket.sendBIN(wsClientNum, buf, 1);
+    Serial.printf("[WS-TX] err=%+.2f  byte=%d\n", err, q);
+  }
+}
+
+/* ───────────────── WebSocket callback ────────────────*/
+void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+  if(type == WStype_CONNECTED) {
+    wsClientNum = num;
+    Serial.printf("[WS] Client #%u connected\n", num);
+  }
+  else if(type == WStype_DISCONNECTED) {
+    Serial.printf("[WS] Client #%u disconnected\n", num);
+    if(wsClientNum == num) wsClientNum = 0xFF;
+    motors.brake();
+  }
+  else if(type == WStype_BIN && !TRAINING_MODE && length == 1) {
+    int8_t steer = (int8_t)payload[0];              // −127…+127
+    int left  = BASE_SPEED - steer;
+    int right = BASE_SPEED + steer;
+    motors.runs(left/2.5, right/2.5);
+    lastCmdMs = millis();
+    Serial.printf("[WS-RX] steer=%d  L=%d  R=%d\n", steer, left, right);
+  }
 }
 
 /* ───────────────── setup ─────────────────────────────*/
@@ -72,21 +95,11 @@ void setup() {
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.print("[WiFi] Connecting");
   while (WiFi.status()!=WL_CONNECTED){ delay(500); Serial.print("."); }
-  Serial.printf("\n[WiFi] Connected  IP=%s\n",
-                WiFi.localIP().toString().c_str());
+  Serial.printf("\n[WiFi] Connected  IP=%s\n", WiFi.localIP().toString().c_str());
 
-  // UDP
-  if(!udp.listen(RX_PORT)) Serial.println("[UDP] listen failed!");
-  udp.onPacket([](AsyncUDPPacket p){
-    if(!TRAINING_MODE && p.length()==1){
-      int8_t steer = *p.data();              // −127…+127
-      int left  = BASE_SPEED - steer;
-      int right = BASE_SPEED + steer;
-      motors.runs(left/2.5, right/2.5);
-      lastCmdMs = millis();
-      Serial.printf("[RX] steer=%d  L=%d  R=%d\n", steer, left, right);
-    }
-  });
+  // WebSocket
+  webSocket.begin();
+  webSocket.onEvent(onWebSocketEvent);
 
   motors.setup();
   Serial.println(TRAINING_MODE? "[MODE] TRAINING" : "[MODE] INFERENCE");
@@ -95,6 +108,7 @@ void setup() {
 /* ───────────────── loop ──────────────────────────────*/
 void loop() {
   static uint32_t lastTx = 0;
+  webSocket.loop();
 
   if (TRAINING_MODE) {
     /* 1. Читаем линию двумя датчиками */

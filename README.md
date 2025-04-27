@@ -103,6 +103,7 @@ weights/
 ```bash
 # Активация виртуальной среды
 source venv/bin/activate
+source venv310/bin/activate
 
 # Установка зависимостей
 pip install -r requirements.txt
