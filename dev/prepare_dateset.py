@@ -9,7 +9,9 @@ for mp4 in glob.glob('dataset/*.mp4'):
     while True:
         ok, frame = cap.read(); ts = cap.get(cv2.CAP_PROP_POS_MSEC)/1000
         if not ok: break
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype('float32')/255
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype('float32')
+        # Централизованная нормализация (-1 до +1) вместо [0, 1]
+        frame = (frame / 255.0 - 0.5) / 0.5
         frame = np.transpose(frame, (2,0,1))  # CHW
         # ищем ближайшую ошибку по времени
         key = min(err, key=lambda k: abs(k-ts))

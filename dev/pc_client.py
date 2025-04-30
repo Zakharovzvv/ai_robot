@@ -85,7 +85,9 @@ async def main_ws():
                                 cv2.FONT_HERSHEY_SIMPLEX,0.5,(255,255,255),1)
             # --- RUN: инференс и steer ---
             if MODE=="run":
-                inp = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype('float32')/255
+                inp = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).astype('float32')
+                # Централизованная нормализация (-1 до +1) вместо [0, 1]
+                inp = (inp / 255.0 - 0.5) / 0.5
                 inp = np.transpose(inp,(2,0,1))[None]
                 offset = ort_sess.run(None,{'input':inp})[0][0][0]
                 offset = 0.6*offset_prev + 0.4*offset;  offset_prev = offset
