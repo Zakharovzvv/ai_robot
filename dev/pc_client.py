@@ -23,13 +23,13 @@ if MODE == "train":
     os.makedirs('dataset', exist_ok=True)
     ts = int(time.time())
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    vw  = cv2.VideoWriter(f'dataset/run_{ts}.mp4', fourcc, 30, (160,120))
-    log = csv.writer(open(f'dataset/run_{ts}.csv','w',newline=''))
+    vw  = cv2.VideoWriter(f'../dataset/run_{ts}.mp4', fourcc, 30, (160,120))
+    log = csv.writer(open(f'../dataset/run_{ts}.csv','w',newline=''))
 
 # нейросеть
 if MODE == "run":
-    ort_path = 'weights/line.ort'
-    onnx_path = 'weights/line.onnx'
+    ort_path = '../weights/line.ort'
+    onnx_path = '../weights/line.onnx'
     if os.path.exists(ort_path):
         model_path = ort_path
         print("[INFO] Используется оптимизированная модель ORT:", ort_path)
@@ -37,7 +37,7 @@ if MODE == "run":
         model_path = onnx_path
         print("[INFO] Используется обычная ONNX-модель:", onnx_path)
     else:
-        raise FileNotFoundError("Не найден ни weights/line.ort, ни weights/line.onnx")
+        raise FileNotFoundError("Не найден ни ../weights/line.ort, ни ../weights/line.onnx")
 
     available_providers = ort.get_available_providers()
     print("[INFO] Доступные ONNXRuntime провайдеры:", available_providers)

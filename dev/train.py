@@ -90,7 +90,7 @@ def main():
 
     # 1. dataset
     print("[INFO] Загрузка датасета...")
-    data = np.load('dataset/train.npz')
+    data = np.load('../dataset/train.npz')
     X = torch.tensor(data['X'], dtype=torch.float32)
     y = torch.tensor(data['y'], dtype=torch.float32)
     ds = TensorDataset(X, y)
@@ -243,7 +243,7 @@ def main():
         print("[ВНИМАНИЕ] Для построения графика установите matplotlib: pip install matplotlib")
 
     # 4. save weights
-    pth = 'weights/mnv2_035.pth'
+    pth = '../weights/mnv2_035.pth'
     if hasattr(model, 'module'):  # Если модель была обернута в DataParallel
         torch.save(model.module.state_dict(), pth)
     else:
