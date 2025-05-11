@@ -1,66 +1,75 @@
 #include <WiFi.h>
 #include <WebSocketsServer.h>
 #include <HNR-252_DCv0_1.h>
+#include "esp32_cam_utils.h"
 
 #define TRAINING_MODE true
 
-const char* WIFI_SSID = "KVANT_1511";
-const char* WIFI_PASS = "7771111777";
-#define USE_STA
-const uint16_t WS_PORT = 2222;
-
-const int DIR_L = 4, PWM_L = 5, DIR_R = 18, PWM_R = 19;
+// Настройка датчиков линии
 const int IR_PINS[5] = {34, 35, 32, 33, 25};
 const int IR_L = 32, IR_R = 33;
-const int BASE_SPEED = 120;
-const float KP = 3.0f;
+const int DIR_L = 4, PWM_L = 5, DIR_R = 18, PWM_R = 19;
+
+// Параметры движения
+const int BASE_SPEED = DEFAULT_BASE_SPEED;
+const float KP = DEFAULT_KP;
+
+// Глобальные объекты
 MotorShield motors;
-WebSocketsServer webSocket = WebSocketsServer(WS_PORT);
+WebSocketsServer webSocket = WebSocketsServer(DEFAULT_WS_PORT);
 uint8_t wsClientNum = 0xFF;
+httpd_handle_t stream_httpd = NULL;
 
-float readLineError2() {
-  int rawL = analogRead(IR_L);
-  int rawR = analogRead(IR_R);
-  float nL = 1.0f - rawL/1000.0f;
-  float nR = 1.0f - rawR/1000.0f;
-  float sum = nL + nR;
-  if(sum < 0.05f) return 0.0f;
-  return (nR - nL) / sum;
-}
-
-void transmitError(float err){
-  if(wsClientNum != 0xFF) {
-    int8_t q = round(err * 127.0f);
-    uint8_t buf[1] = { (uint8_t)q };
-    webSocket.sendBIN(wsClientNum, buf, 1);
-  }
-}
-
+// WebSocket callback
 void onWebSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
-  if(type == WStype_CONNECTED) wsClientNum = num;
-  else if(type == WStype_DISCONNECTED && wsClientNum == num) wsClientNum = 0xFF;
+  if(type == WStype_CONNECTED) {
+    wsClientNum = num;
+    Serial.printf("[WS] Client #%u connected\n", num);
+  }
+  else if(type == WStype_DISCONNECTED && wsClientNum == num) {
+    wsClientNum = 0xFF;
+    Serial.printf("[WS] Client #%u disconnected\n", num);
+  }
 }
 
 void setup() {
   Serial.begin(115200);
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status()!=WL_CONNECTED){ delay(500); }
+  
+  // Инициализация камеры
+  camera_config_t camera_config = get_default_camera_config();
+  if (!init_camera(camera_config)) {
+    return;
+  }
+  optimize_camera_settings();
+  
+  // Настройка Wi-Fi
+  if (!setup_wifi(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASS)) {
+    Serial.println("[WARN] WiFi connection failed, continuing without network");
+  }
+  
+  // Запуск сервисов
   webSocket.begin();
   webSocket.onEvent(onWebSocketEvent);
   motors.setup();
-  Serial.println("[MODE] DATA COLLECTION");
+  
+  // Запуск HTTP сервера для стрима с камеры
+  stream_httpd = start_mjpeg_server(DEFAULT_HTTP_PORT);
+  
+  Serial.println("[MODE] DATA COLLECTION with ESP32-CAM");
 }
 
 void loop() {
   static uint32_t lastTx = 0;
   webSocket.loop();
-  float err = readLineError2();
+  
+  float err = readLineError2(IR_L, IR_R);
   int steer = (int)(KP * err * 100);
   motors.runs((BASE_SPEED - steer)/2.5, (BASE_SPEED + steer)/2.5);
+  
   if (millis() - lastTx >= 50) {
-    transmitError(err);
+    transmitError(webSocket, wsClientNum, err);
     lastTx = millis();
   }
+  
   Serial.printf("[ADC] L=%4d R=%4d  err=%.2f steer=%d\n", analogRead(IR_L), analogRead(IR_R), err, steer);
-} 
+}
