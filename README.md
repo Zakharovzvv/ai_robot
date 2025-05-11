@@ -131,13 +131,19 @@ pip install -r requirements.txt
 
 ## Запуск проекта
 
-1. Активируйте виртуальную среду:
+1. Активируйте виртуальную среду из корневого каталога проекта:
 
 ```bash
-source venv/bin/activate
+source venv310/bin/activate
 ```
 
-2. Запустите нужный скрипт, например (из каталога dev/):
+2. Перейдите в каталог с исходными кодами:
+
+```bash
+cd dev
+```
+
+3. Запустите нужный скрипт:
 
 ```bash
 # Для сбора данных и/или управления роботом (режимы train/run)
@@ -153,6 +159,81 @@ python train.py
 python export_models.py
 ```
 
+## Инструкция по прошивке ESP32-CAM
+
+Для прошивки ESP32-CAM вам понадобится:
+
+1. **Создайте PlatformIO проект** для ESP32-CAM или используйте существующий:
+
+   ```bash
+   # Создание нового проекта (если нужно)
+   mkdir -p ~/esp32_firmware
+   cd ~/esp32_firmware
+   pio init --board esp32cam
+   ```
+
+2. **Скопируйте необходимые файлы** в проект PlatformIO:
+
+   ```bash
+   # Создайте папки
+   mkdir -p src include lib
+   
+   # Скопируйте библиотеку с общими функциями
+   cp /Users/vladimir/Documents/Projects/robots/ai_robot/dev/robots/esp32/esp32_cam_utils.h include/
+   
+   # Выберите один из режимов и скопируйте его в main.cpp
+   # Например, для сбора данных:
+   cp /Users/vladimir/Documents/Projects/robots/ai_robot/dev/robots/esp32/data_collection_robot.cpp src/main.cpp
+   
+   # Или для автономного режима:
+   # cp /Users/vladimir/Documents/Projects/robots/ai_robot/dev/robots/esp32/autonomous_robot.cpp src/main.cpp
+   
+   # Если выбран автономный режим, также скопируйте файл с моделью
+   # python dev/export_models.py # запустите если файла model_data.cc нет
+   # cp weights/model_data.cc src/
+   ```
+
+3. **Настройте файл platformio.ini**:
+
+   ```ini
+   [env:esp32cam]
+   platform = espressif32
+   board = esp32cam
+   framework = arduino
+   monitor_speed = 115200
+   build_flags = 
+       -DCORE_DEBUG_LEVEL=5
+       -DBOARD_HAS_PSRAM
+       -mfix-esp32-psram-cache-issue
+   lib_deps =
+       links2004/WebSockets @ ^2.4.0
+       esp32-camera
+       # Для autonomous_robot.cpp нужен TFLite:
+       tanakamasayuki/TensorFlowLite ESP32 @ ^0.9.0
+   ```
+
+4. **Скопируйте библиотеку для моторов** (если требуется):
+   ```bash
+   # Создайте папку для библиотеки моторов
+   mkdir -p lib/HNR-252_DCv0_1/src lib/HNR-252_DCv0_1/include
+   
+   # Скопируйте файлы библиотеки (если они есть)
+   # cp path/to/HNR-252_DCv0_1.cpp lib/HNR-252_DCv0_1/src/
+   # cp path/to/HNR-252_DCv0_1.h lib/HNR-252_DCv0_1/include/
+   ```
+
+5. **Загрузите прошивку**:
+
+   ```bash
+   # Для загрузки нужно подключить ESP32-CAM через USB-TTL адаптер
+   # и соединить GPIO0 с GND для входа в режим программирования
+   pio run -t upload
+   
+   # После успешной загрузки:
+   # 1. Отсоедините GPIO0 от GND
+   # 2. Перезагрузите ESP32-CAM (отключите и подключите питание)
+   ```
+
 ## Примечания по настройке
 
 - В файле `dev/pc_client.py` настройте `CAM_URL`, `ESP32_IP` под вашу сеть и робота
@@ -160,4 +241,4 @@ python export_models.py
 - В файле `dev/export_models.py` настраивается экспорт моделей и форматы вывода
 - В директории `dataset/` хранятся видео, логи и npz-файлы для обучения
 - В директории `weights/` сохраняются веса и экспортированные модели
-- Для работы с ESP32 используйте код из `dev/robots/esp32/` 
+- Для работы с ESP32 используйте код из `dev/robots/esp32/`
